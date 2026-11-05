@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f8f5ef" />
+  <meta name="description" content="OlfaLink｜においの強さを数値で、その特徴を言葉で。" />
+  <title>いま、どんなにおい？ | OlfaLink</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=0.4.0" />
+  <link rel="preload" href="/assets/botanical.svg?v=0.4.0" as="image" type="image/svg+xml" />
+  <link rel="stylesheet" href="/assets/styles.css?v=0.4.0" />
+  <script type="module" src="/assets/app.js?v=0.4.0"></script>
+</head>
+<body>
+  <div class="environment" aria-hidden="true">
+    <div class="light-wash"></div>
+    <img class="botanical-art" src="/assets/botanical.svg?v=0.4.0" alt="" />
+    <img class="landscape-art" src="/assets/landscape.svg?v=0.4.0" alt="" />
+  </div>
+
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="OlfaLink ホーム">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+        <span>OlfaLink</span>
+      </a>
+      <a class="header-about" href="#about">概要 <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="main" class="main-content">
+      <div class="intro">
+        <p class="intro-eyebrow">暮らしのにおいを、もっと身近に。</p>
+        <span class="eyebrow-rule" aria-hidden="true"></span>
+        <h1>いま、どんなにおい？</h1>
+        <p class="intro-subtitle">においの強さと特徴を、数字と言葉で。</p>
+      </div>
+
+      <div class="status-line" aria-live="polite">
+        <span class="status-wrap"><span class="status-dot" id="status-dot" aria-hidden="true"></span><span id="status-label">接続を確認しています</span></span>
+        <span class="status-actions"><span id="updated-at" class="updated-at"></span><button id="refresh" class="refresh-button" type="button" aria-label="測定データを更新">↻ <span>更新</span></button></span>
+      </div>
+
+      <div class="key-information">
+        <section class="card intensity-card" aria-labelledby="strength-heading">
+          <div class="card-topline">
+            <h2 id="strength-heading"><span class="leaf-accent" aria-hidden="true"></span>においの強さ</h2>
+            <span class="scale-short">0〜5</span>
+          </div>
+          <div class="meter-reading" aria-live="polite">
+            <span class="level-value is-empty" id="intensity-value">—</span>
+            <span class="level-max">/ 5</span>
+            <span class="level-word" id="intensity-word">—</span>
+          </div>
+          <div class="level-steps" id="level-steps" role="meter" aria-label="においの強度" aria-valuemin="0" aria-valuemax="5">
+            <span class="step"></span><span class="step"></span><span class="step"></span><span class="step"></span><span class="step"></span>
+          </div>
+          <div class="scale-labels"><span>0（なし）</span><span>5（強い）</span></div>
+        </section>
+
+        <section class="card explanation-card" aria-labelledby="description-heading">
+          <div class="card-topline">
+            <h2 id="description-heading"><span class="leaf-accent" aria-hidden="true"></span>どんなにおい？</h2>
+          </div>
+          <p class="description-text" id="description-title" aria-live="polite">測定結果を待っています。</p>
+          <p class="description-body" id="description-body" hidden></p>
+          <div class="feature-list" id="features" hidden>
+            <p class="feature-heading">においの特徴</p>
+            <div class="feature-chips" id="feature-chips"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="closing-message"><span class="closing-rule"></span><p>においを感じにくいときも、<br />においのある暮らしを、もっと身近に。</p><span class="closing-rule"></span></div>
+
+      <section class="about-section" id="about" aria-labelledby="about-heading">
+        <h2 id="about-heading">OlfaLinkについて</h2>
+        <p>においを感じにくい人にも、周囲のにおいの情報を。OlfaLinkは、においの強さと特徴をわかりやすく伝えるためのWebアプリです。</p>
+        <p class="safety-note">OlfaLinkはガス警報器ではありません。安全性の判断には使用しないでください。</p>
+      </section>
+    </main>
+
+    <footer class="site-footer"><span>OlfaLink © 2026</span><span>においを、わかる情報へ。</span></footer>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
