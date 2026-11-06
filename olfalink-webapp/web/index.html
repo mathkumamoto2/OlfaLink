@@ -6,16 +6,16 @@
   <meta name="theme-color" content="#f8f5ef" />
   <meta name="description" content="OlfaLink｜においの強さを数値で、その特徴を言葉で。" />
   <title>いま、どんなにおい？ | OlfaLink</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=0.9.0" />
-  <link rel="preload" href="/assets/botanical.svg?v=0.9.0" as="image" type="image/svg+xml" />
-  <link rel="stylesheet" href="/assets/styles.css?v=0.9.0" />
-  <script type="module" src="/assets/app.js?v=0.9.0"></script>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=1.1.0" />
+  <link rel="preload" href="/assets/botanical.svg?v=1.1.0" as="image" type="image/svg+xml" />
+  <link rel="stylesheet" href="/assets/styles.css?v=1.1.0" />
+  <script type="module" src="/assets/app.js?v=1.1.0"></script>
 </head>
 <body>
   <div class="environment" aria-hidden="true">
     <div class="light-wash"></div>
-    <img class="botanical-art" src="/assets/botanical.svg?v=0.9.0" alt="" />
-    <img class="landscape-art" src="/assets/landscape.svg?v=0.9.0" alt="" />
+    <img class="botanical-art" src="/assets/botanical.svg?v=1.1.0" alt="" />
+    <img class="landscape-art" src="/assets/landscape.svg?v=1.1.0" alt="" />
   </div>
 
   <div class="site-shell">
@@ -37,7 +37,12 @@
 
       <div class="status-line" aria-live="polite">
         <span class="status-wrap"><span class="status-dot" id="status-dot" aria-hidden="true"></span><span id="status-label">接続を確認しています</span></span>
-        <span class="status-actions"><span id="updated-at" class="updated-at"></span><button id="refresh" class="refresh-button" type="button" aria-label="測定データを更新">↻ <span>更新</span></button></span>
+        <span class="status-actions"><span id="updated-at" class="updated-at"></span></span>
+      </div>
+
+      <div class="action-panel">
+        <button id="analyze-now" class="analyze-button" type="button">においを解析する</button>
+        <p id="analysis-action-message" class="analysis-action-message" role="status" aria-live="polite"></p>
       </div>
 
       <div class="key-information">
@@ -61,7 +66,7 @@
           <div class="card-topline">
             <h2 id="description-heading"><span class="leaf-accent" aria-hidden="true"></span>どんなにおい？</h2>
           </div>
-          <p class="description-text" id="description-title" aria-live="polite">測定結果を待っています。</p>
+          <p class="description-text" id="description-title" aria-live="polite">解析ボタンを押すと、測定結果を表示します。</p>
           <p class="description-body" id="description-body" hidden></p>
           <div class="feature-list" id="features" hidden>
             <p class="feature-heading">においの特徴</p>

@@ -180,3 +180,13 @@ body { min-width: 280px; overflow-x: clip; }
 .about-section { margin-top: 45px; }
 
 .level-value.is-empty { font-size: clamp(78px, 9vw, 104px); color: #93a998; letter-spacing: 0; }
+/* On-demand primary action: preserve the botanical design language. */
+.action-panel {display:flex;flex-direction:column;align-items:center;gap:10px;margin:0 0 27px;}
+.analyze-button {border:1px solid #315942;background:linear-gradient(125deg,#416d50,#264832);color:#fff;
+  padding:16px 50px;min-height:58px;min-width:280px;border-radius:999px;
+  font:500 17px/1.35 var(--serif);letter-spacing:.13em;
+  box-shadow:0 12px 24px rgba(34,68,46,.15);transition:filter .18s,transform .18s;}
+.analyze-button:hover:not(:disabled) {transform:translateY(-2px);filter:brightness(1.06);}
+.analyze-button:disabled {cursor:wait;opacity:.78;}
+.analysis-action-message {min-height:22px;margin:0;color:#6b7569;text-align:center;font-size:12px;line-height:1.8;}
+@media(max-width:520px){.action-panel{margin-bottom:20px}.analyze-button{width:100%;min-width:0;min-height:55px;font-size:15px}}

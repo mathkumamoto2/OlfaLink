@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Settings:
-    app_mode: str = "demo"           # demo | firestore | aws
+    app_mode: str = "demo"           # demo | firestore | aws | on_demand
     device_ingest_key: str | None = None
     device_id: str = "olfalink-01"
     firestore_collection: str = "olfalink_readings"
@@ -14,12 +14,14 @@ class Settings:
     llm_provider: str = "disabled"  # connector scaffold, intentionally disabled
     aws_read_key: str | None = None
     llm_service_url: str | None = None
+    live_ingest_key: str | None = None
+    live_device_id: str = "esp1"
 
     @classmethod
     def from_env(cls) -> "Settings":
         mode = os.getenv("APP_MODE", "demo").lower()
-        if mode not in {"demo", "firestore", "aws"}:
-            raise ValueError("APP_MODE must be 'demo', 'aws' or 'firestore'")
+        if mode not in {"demo", "firestore", "aws", "on_demand"}:
+            raise ValueError("APP_MODE must be 'demo', 'aws', 'on_demand' or 'firestore'")
         ai_provider = os.getenv("AI_PROVIDER", "disabled").lower()
         llm_provider = os.getenv("LLM_PROVIDER", "disabled").lower()
         if ai_provider != "disabled" or llm_provider != "disabled":
@@ -33,4 +35,6 @@ class Settings:
             llm_provider=llm_provider,
             aws_read_key=os.getenv("OLFALINK_READ_KEY") or None,
             llm_service_url=os.getenv("LLM_SERVICE_URL") or None,
+            live_ingest_key=os.getenv("LIVE_INGEST_KEY") or None,
+            live_device_id=os.getenv("LIVE_DEVICE_ID", "esp1"),
         )

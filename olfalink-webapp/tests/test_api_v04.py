@@ -123,7 +123,7 @@ def test_visual_ui_focuses_on_intensity_and_natural_language_not_history():
         html = page.text
         assert 'においの強さ' in html
         assert 'どんなにおい？' in html
-        assert '測定結果を待っています。' in html
+        assert '解析ボタンを押すと、測定結果を表示します。' in html
         assert '架空の例' not in html
         assert '表示サンプル' not in html
         assert '0〜5' in html
@@ -147,7 +147,7 @@ def test_production_ui_does_not_present_sample_as_live():
         js = c.get('/assets/app.js').text
         assert 'ほんのり甘く' not in html
         assert 'sampleText' not in js
-        assert "payload?.mode !== 'demo'" in js
+        assert "analysis?.status === 'ready'" in js
         assert "latest?.source === 'device'" in js
         assert 'においの強さ' in html
         assert 'どんなにおい？' in html

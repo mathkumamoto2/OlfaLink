@@ -78,3 +78,57 @@ def aws_dashboard(read_key: str, llm_url: str | None = None) -> Dashboard:
             features={"ai_enabled":True, "llm_enabled":llm_used, "ingestion_enabled":False}
         )
     return make_empty("解析できる測定セッションがありません。")
+
+
+
+def live_dashboard(live_buffer, llm_url: str | None = None) -> Dashboard | None:
+    """Prefer fresh pushed measurements; return None when no recent live packets."""
+    rows, fresh, last_ms = live_buffer.snapshot()
+    if not fresh:
+        return None
+    if rows[-1]["led"] != "exposure":
+        # A live packet is arriving, but the sensor is not in an odor-exposure
+        # interval. Do not present a past odor estimate as a current result.
+        dashboard = make_empty("基準測定または回復区間を取得中です。")
+        dashboard.mode = "live"
+        dashboard.device.connected = True
+        dashboard.device.status = "collecting"
+        dashboard.device.last_seen = datetime.fromtimestamp(last_ms / 1000, tz=timezone.utc)
+        return dashboard
+    try:
+        from app.services.live_stream import select_30s
+        from ml.cnn_multitask import predict_trace
+        trace, end_ms = select_30s(rows)
+        model, scales, _ = get_model()
+        prediction = predict_trace(model, scales, trace)
+    except (ValueError, IndexError, TypeError, FileNotFoundError) as exc:
+        # Sensor is connected, but input is not yet sufficient for a valid CNN inference.
+        dashboard = make_empty(str(exc))
+        dashboard.mode = "live"
+        dashboard.device.connected = True
+        dashboard.device.status = "collecting"
+        dashboard.device.last_seen = datetime.fromtimestamp(last_ms / 1000, tz=timezone.utc)
+        return dashboard
+    stamp = datetime.fromtimestamp(end_ms / 1000.0, tz=timezone.utc)
+    sample_id = f"live-{end_ms}"
+    intensity = prediction["predicted_intensity_0_5"]
+    label = prediction["predicted_odor_label"]
+    score = prediction["classification_score_uncalibrated"]
+    sentence, used_llm = describe(label, intensity, score, llm_url)
+    return Dashboard(
+        mode="live",
+        latest=Reading(id=sample_id, device_id="esp1", timestamp=stamp, intensity=intensity,
+                       source=Source.DEVICE, channels={}),
+        trend=[],
+        analysis=AnalysisResult(
+            status=AnalysisStatus.READY, title="直近30秒の推定（実験用）",
+            message=sentence,
+            evidence=DescriptionEvidence(
+                descriptor_scores={},
+                uncertainty="v0.7モデルの30秒部分区間入力。未知データに対する精度未検証。",
+                model_version=prediction["model_version"], source_reading_ids=[sample_id]
+            ), generated_by_llm=used_llm),
+        device=DeviceStatus(id="esp1",label="OlfaLink Sensor Unit",connected=True,
+                            last_seen=stamp,status="connected",sensor_labels=["BME688","SGP41","TGS2602","TGS2603"]),
+        features={"ai_enabled":True,"llm_enabled":used_llm,"ingestion_enabled":True}
+    )
