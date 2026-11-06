@@ -1,0 +1,26 @@
+# Local secrets / real network configuration
+**/local_config.h
+**/secrets.h
+**/.env
+**/.env.*
+!**/.env.example
+
+# Measurements and human data (do not publish by default)
+**/measurements/
+**/exports/
+**/local-data/
+*.csv
+*.tsv
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Local build files
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/build/
+**/.pio/
+**/.vscode/
+**/Debug/
