@@ -75,13 +75,15 @@ function showAnalysis(analysis, validReading, latestId) {
   }
 
   setFeatures([]);
-  setText('description-title', validReading ? 'においの特徴を解析できません。' : '測定結果を待っています。');
+  const unavailableMessage = analysis?.status === 'not_available' && typeof analysis.message === 'string' ? analysis.message : null;
+  setText('description-title', unavailableMessage || (validReading ? 'においの特徴を解析できません。' : '測定結果を待っています。'));
 }
 
 function render(payload) {
   const latest = payload?.latest;
+  const historical = payload?.mode === 'aws';
   const validReading = payload?.mode !== 'demo' &&
-    payload?.device?.connected === true &&
+    (historical || payload?.device?.connected === true) &&
     latest?.source === 'device' &&
     Number.isInteger(latest.intensity) && latest.intensity >= 0 && latest.intensity <= 5;
 
@@ -89,10 +91,10 @@ function render(payload) {
   showIntensity(validReading ? latest.intensity : null);
   showAnalysis(payload?.analysis, validReading, latest?.id);
 
-  byId('status-dot').classList.toggle('is-live', validReading);
-  setText('status-label', validReading ? '測定中' : '接続待ち');
+  byId('status-dot').classList.toggle('is-live', validReading && !historical);
+  setText('status-label', historical ? (validReading ? '保存済み測定を解析' : 'AWS保存データを確認中') : (validReading ? '測定中' : '接続待ち'));
   const updated = validReading && latest.timestamp ? new Date(latest.timestamp) : null;
-  setText('updated-at', updated && !Number.isNaN(updated.getTime()) ? `最終取得 ${timeFormatter.format(updated)}` : '');
+  setText('updated-at', updated && !Number.isNaN(updated.getTime()) ? `${historical ? '測定日時' : '最終取得'} ${timeFormatter.format(updated)}` : '');
 }
 
 async function refresh({ notify = false } = {}) {

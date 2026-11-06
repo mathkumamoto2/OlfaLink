@@ -1,0 +1,46 @@
+{
+  "predicted_odor_label": "food_waste",
+  "predicted_odor_ja": "生ごみ",
+  "classification_score_uncalibrated": 0.9999,
+  "top3_candidates": [
+    {
+      "label": "food_waste",
+      "name_ja": "生ごみ",
+      "score_uncalibrated": 0.9999
+    },
+    {
+      "label": "ammonia",
+      "name_ja": "アンモニア",
+      "score_uncalibrated": 0.0001
+    },
+    {
+      "label": "shoe",
+      "name_ja": "靴",
+      "score_uncalibrated": 0.0
+    }
+  ],
+  "predicted_intensity_continuous": 3.946,
+  "predicted_intensity_0_5": 4,
+  "model_version": "olfalink-multitask-1dcnn-v0.7-research",
+  "unseen_odor_detection_supported": false,
+  "independent_real_validation": false,
+  "observed_intensity_levels": [
+    0,
+    2,
+    3,
+    4,
+    5
+  ],
+  "warning_ja": "研究用の推定結果です。学習元は9実測セッションのノイズ拡張であり、未知の実測への分類精度・強度推定精度は未確立です。強度1は未学習。未学習のにおいも既知7種類のいずれかに分類されるため、物質の特定や安全性判断には使えません。",
+  "llm_input": {
+    "predicted_odor_label": "food_waste",
+    "predicted_odor_ja": "生ごみ",
+    "classification_status": "experimental_unverified",
+    "instruction_hint": "予測ラベルから一般的なにおいの特徴を日本語で説明する。実測していない成分・安全性を断定しない。"
+  },
+  "phase_row_counts": {
+    "baseline": 168,
+    "exposure": 70,
+    "refresh": 0
+  }
+}

@@ -2,12 +2,12 @@
 .env
 .env.*
 !.env.example
+.venv
+venv
 __pycache__
 .pytest_cache
 *.pyc
 *.zip
-venv
-.venv
-node_modules
-reports
-screenshots
+*.xlsx
+*.csv
+tests/
