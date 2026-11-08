@@ -11,3 +11,6 @@ __pycache__
 *.xlsx
 *.csv
 tests/
+
+config.env
+.gcloudignore

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.schemas import AnalysisResult, AnalysisStatus, Dashboard, DeviceStatus, Reading, Source, DescriptionEvidence
 from app.services.aws_sessions import subscriber, ranked_sessions, SourceUnavailable
-from app.services.odor_narration import describe
+from app.services.odor_narration import describe, description_source
 
 MODEL = Path(__file__).resolve().parent.parent.parent / "models" / "odor_intensity_multitask_v0_7.pt"
 
@@ -67,6 +67,7 @@ def aws_dashboard(read_key: str, llm_url: str | None = None) -> Dashboard:
                 source_reading_ids=[sample_id]
             ),
             generated_by_llm=llm_used,
+            description_source=description_source(label, intensity, llm_used),
         )
         return Dashboard(
             mode="aws", latest=latest, trend=[latest], analysis=analysis,
@@ -127,7 +128,8 @@ def live_dashboard(live_buffer, llm_url: str | None = None) -> Dashboard | None:
                 descriptor_scores={},
                 uncertainty="v0.7モデルの30秒部分区間入力。未知データに対する精度未検証。",
                 model_version=prediction["model_version"], source_reading_ids=[sample_id]
-            ), generated_by_llm=used_llm),
+            ), generated_by_llm=used_llm,
+            description_source=description_source(label, intensity, used_llm)),
         device=DeviceStatus(id="esp1",label="OlfaLink Sensor Unit",connected=True,
                             last_seen=stamp,status="connected",sensor_labels=["BME688","SGP41","TGS2602","TGS2603"]),
         features={"ai_enabled":True,"llm_enabled":used_llm,"ingestion_enabled":True}

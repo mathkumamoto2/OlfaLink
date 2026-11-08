@@ -190,3 +190,40 @@ body { min-width: 280px; overflow-x: clip; }
 .analyze-button:disabled {cursor:wait;opacity:.78;}
 .analysis-action-message {min-height:22px;margin:0;color:#6b7569;text-align:center;font-size:12px;line-height:1.8;}
 @media(max-width:520px){.action-panel{margin-bottom:20px}.analyze-button{width:100%;min-width:0;min-height:55px;font-size:15px}}
+
+/* v1.6 - full panel replacement during button-triggered inference. */
+.analysis-progress {
+  min-height:394px; border-radius:29px; padding:46px 24px;
+  background:rgba(255,255,255,.78); border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 18px 45px rgba(56,54,39,.075); backdrop-filter:blur(15px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+}
+.analysis-progress h2 {font:500 clamp(25px,3.2vw,36px)/1.4 var(--serif);color:var(--pine);letter-spacing:.12em;margin:22px 0 8px;}
+.analysis-progress p {color:#667669; font:400 14px/1.9 var(--sans); margin:0;}
+.analysis-progress .analysis-progress-note {color:#888c81;font-size:12px;margin-top:16px;}
+.analysis-spinner {display:block;width:52px;height:52px;border:4px solid #dce9d9;border-top-color:#416d50;border-radius:50%;animation:olfalink-spin 1.0s linear infinite;}
+.analysis-progress-track {height:5px;width:min(280px,90%);background:#e1eadf;border-radius:5px;margin-top:22px;overflow:hidden;}
+.analysis-progress-track span {display:block;height:100%;width:38%;background:#64866b;border-radius:5px;animation:olfalink-sweep 1.9s ease-in-out infinite alternate;}
+.description-provenance {color:#5d7565;font-size:12px;line-height:1.6;margin:12px 0 0;padding-top:8px;border-top:1px solid var(--line);}
+@keyframes olfalink-spin {to{transform:rotate(360deg)}}
+@keyframes olfalink-sweep {from{transform:translateX(-110%)}to{transform:translateX(275%)}}
+@media(max-width:850px){.analysis-progress{min-height:335px}}
+@media(max-width:520px){.analysis-progress{min-height:320px;padding:30px 20px}.analysis-progress p{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.analysis-spinner,.analysis-progress-track span{animation:none}}
+
+/* v1.8: prominent, persistent provenance marker for random demo values. */
+.demo-warning[hidden] { display: none !important; }
+.demo-warning { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;
+  background:#fff5e5; border:2px solid #d19b50; border-radius:16px;
+  color:#6a4619; padding:16px 20px; margin:0 0 19px; box-shadow:0 8px 20px rgba(80,50,10,.06); }
+.demo-warning strong {flex:none; font-size:14px;}
+.demo-warning span {flex:1; min-width:180px; font-size:12px; line-height:1.7;}
+
+
+/* v1.9.2: clearly disclose temporary ADC clipping separately from synthetic demo. */
+.correction-warning[hidden] { display: none !important; }
+.correction-warning { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;
+  background:#fff9eb; border:1px solid #cbb890; border-radius:16px;
+  color:#725b35; padding:13px 18px; margin:0 0 19px; }
+.correction-warning strong {flex:none; font-size:13px;}
+.correction-warning span {flex:1; min-width:170px; font-size:12px; line-height:1.7;}

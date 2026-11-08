@@ -8,8 +8,8 @@
   <title>いま、どんなにおい？ | OlfaLink</title>
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=1.1.0" />
   <link rel="preload" href="/assets/botanical.svg?v=1.1.0" as="image" type="image/svg+xml" />
-  <link rel="stylesheet" href="/assets/styles.css?v=1.1.0" />
-  <script type="module" src="/assets/app.js?v=1.1.0"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=1.9.0" />
+  <script type="module" src="/assets/app.js?v=1.9.0"></script>
 </head>
 <body>
   <div class="environment" aria-hidden="true">
@@ -45,7 +45,25 @@
         <p id="analysis-action-message" class="analysis-action-message" role="status" aria-live="polite"></p>
       </div>
 
-      <div class="key-information">
+      <div class="analysis-progress" id="analysis-progress" role="status" aria-live="polite" hidden>
+        <span class="analysis-spinner" aria-hidden="true"></span>
+        <h2>判定中です</h2>
+        <p>センサーデータを確認し、CNNがにおいの特徴を解析しています。</p>
+        <div class="analysis-progress-track" aria-hidden="true"><span></span></div>
+        <p class="analysis-progress-note">GPUの起動中は時間がかかる場合があります。</p>
+      </div>
+
+      <div class="demo-warning" id="demo-warning" role="status" aria-live="polite" hidden>
+        <strong>デモデータで判定しました</strong>
+        <span>実機から測定データを取得できなかったため、ランダムに生成した疑似センサー値をCNNで解析しています。実際のにおいを測定した結果ではありません。LLMを使用した場合も説明は合成データ由来の参考情報です。</span>
+      </div>
+
+      <div class="correction-warning" id="correction-warning" role="status" aria-live="polite" hidden>
+        <strong>センサー値を補正した暫定結果</strong>
+        <span>TGS系ADCの負の測定値を0に補正しました。基準値が0のチャンネルは推論時に0系列として扱っています。実測データからの推論ですが、精度は未検証です。</span>
+      </div>
+
+      <div class="key-information" id="result-cards">
         <section class="card intensity-card" aria-labelledby="strength-heading">
           <div class="card-topline">
             <h2 id="strength-heading"><span class="leaf-accent" aria-hidden="true"></span>においの強さ</h2>
@@ -68,6 +86,7 @@
           </div>
           <p class="description-text" id="description-title" aria-live="polite">解析ボタンを押すと、測定結果を表示します。</p>
           <p class="description-body" id="description-body" hidden></p>
+          <p class="description-provenance" id="description-provenance" hidden></p>
           <div class="feature-list" id="features" hidden>
             <p class="feature-heading">においの特徴</p>
             <div class="feature-chips" id="feature-chips"></div>

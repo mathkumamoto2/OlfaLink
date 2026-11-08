@@ -1,11 +1,13 @@
-# OlfaLink v1.1 — button-only 30-second inference
+# OlfaLink Web v1.9.2
 
-A FastAPI + botanical Web UI for on-demand odor inference. It keeps reading actual ESP32 sensor measurements, but runs the CNN and optional LLM **only when the user presses the button**. Firestore persists incoming samples across Cloud Run restarts. The CNN checkpoint `models/odor_intensity_multitask_v0_7.pt` is included.
+FastAPI + UI + AWS `/data` の実測値/合成デモ + 1D-CNN + 辞書/LLM説明。
 
-See [README_ON_DEMAND_30S.md](README_ON_DEMAND_30S.md) for complete Japanese setup and limitations.
+最初に [リポジトリ直下のREADME](../README.md) を参照してください。
+実機JSONのネスト形式、負ADCの0補正と限界については [README_ADC_CLAMP_v1.9.2.md](README_ADC_CLAMP_v1.9.2.md) に記載しています。
 
-- Deploy with `bash deploy_on_demand.sh` from Cloud Shell after committing to GitHub.
-- Configure the AWS ingest Lambda to forward each real measurement via `bridge/aws_lambda_forwarder.py`.
-- AWS historical `/publish` is NOT the live streaming source.
-- Optional private GPU LLM: see `llm-service/` in the full LoRA package (not in the lightweight ZIP).
-- Never commit secrets to GitHub; no safety or chemical constituent claims should be derived from this experimental CNN.
+- `POST /api/v1/inference/on-demand`：ボタンからの推論（AWS取得を含む）
+- `GET /api/v1/dashboard`：直近の結果表示（インスタンスメモリ内）
+- `GET /api/v1/healthz`：サービス起動確認
+- `GET /api/v1/integration/status`：設定状態（実測推論成功の証明ではない）
+
+公開APIに認証がない点、実測／合成デモの区別、GPU利用料金に注意してください。

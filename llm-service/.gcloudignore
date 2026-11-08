@@ -1,0 +1,9 @@
+# Explicit upload policy; do not import .gitignore (which hides adapter/).
+.gcloudignore
+.git/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.*
+*.zip

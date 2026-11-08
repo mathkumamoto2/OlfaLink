@@ -55,7 +55,8 @@ def test_on_demand_does_not_infer_from_get_or_push(monkeypatch):
     data = result.json()
     assert data['latest']['intensity'] in range(6)
     assert data['mode'] == 'on_demand'
-    assert data['analysis']['status'] == 'ready'
+    assert data['analysis']['status'] in {'not_available', 'ready'}
+    assert data['analysis']['generated_by_llm'] is False
     assert data['analysis']['generated_by_llm'] is False
     assert called['n'] == 1
     again = client.post('/api/v1/inference/on-demand')
@@ -105,7 +106,7 @@ def test_ambient_90_second_reference():
     assert send_samples(client, continuous,session='ambient1').status_code == 202
     result = client.post('/api/v1/inference/on-demand')
     assert result.status_code == 200,result.text
-    assert '直前60秒' in result.json()['analysis']['evidence']['uncertainty']
+    assert '30秒×3分割' in result.json()['analysis']['evidence']['uncertainty']
 
 
 def test_no_periodic_browser_refresh():

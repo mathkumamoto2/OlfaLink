@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from enum import Enum
 from math import isfinite
-from typing import Annotated
+from typing import Annotated, Literal
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
@@ -63,12 +63,36 @@ class DescriptionEvidence(BaseModel):
     source_reading_ids: list[str] = Field(default_factory=list)
 
 
+class PhaseWindow(BaseModel):
+    """Acquisition-time slot, NOT a verified olfactory exposure annotation."""
+    label: str
+    start_ms: int = Field(ge=1)
+    end_ms: int = Field(ge=1)
+    sample_count: int = Field(ge=0)
+
+
+class PhaseAssignment(BaseModel):
+    method: str = "time_split_3x30s"
+    is_ground_truth: bool = False
+    used_led_signal: bool = False
+    windows: list[PhaseWindow] = Field(default_factory=list)
+
+
 class AnalysisResult(BaseModel):
     status: AnalysisStatus
     title: str
     message: str
     evidence: DescriptionEvidence | None = None
     generated_by_llm: bool = False
+    # Distinguish actual GPU generation from deterministic reference templates.
+    description_source: Literal["llm", "dictionary", "no_signal", "unavailable"] = "unavailable"
+    # CNN outputs must remain visible even when GPU LLM is intentionally stopped.
+    predicted_odor_label: str | None = None
+    predicted_odor_ja: str | None = None
+    classification_score_uncalibrated: float | None = None
+    phase_assignment: PhaseAssignment | None = None
+    # A demo prediction must never be mistaken for a device observation.
+    input_origin: Literal["device", "synthetic_demo"] = "device"
 
 
 class DeviceStatus(BaseModel):
