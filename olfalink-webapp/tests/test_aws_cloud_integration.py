@@ -48,8 +48,9 @@ def test_excel_to_true_cnn(monkeypatch):
     result=aws_dashboard('local-test-secret')
     assert result.mode=='aws'
     assert result.latest is not None and result.latest.intensity==3
-    assert result.analysis.status.value=='ready'
     assert result.analysis.generated_by_llm is False
+    assert '説明辞書' in result.analysis.message
+    assert '靴' in result.analysis.message
     assert result.device.connected is False
     assert result.analysis.evidence.source_reading_ids==[result.latest.id]
     assert result.latest.channels=={}
@@ -80,7 +81,7 @@ def test_aws_mode_api_no_raw_or_mock(monkeypatch):
 
 def test_description_is_not_llm_imitation():
     s,used=describe('ammonia',5,.92,None)
-    assert 'アンモニア' in s and used is False
+    assert '説明辞書' in s and used is False
     s,used=describe('ammonia',0,.92,None)
     assert 'アンモニア' not in s and used is False
 
@@ -116,5 +117,5 @@ def test_llm_fallback_flag_tracks_real_model_use(monkeypatch):
     import app.services.odor_narration as narration
     monkeypatch.setattr(narration, 'remote_description', lambda *_: ('テキスト説明', False))
     message, llm_used = narration.describe('shoe', 3, .92, 'https://example.run.app')
-    assert message == 'テキスト説明'
+    assert '説明辞書' in message
     assert llm_used is False

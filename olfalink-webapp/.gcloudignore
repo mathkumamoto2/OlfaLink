@@ -1,0 +1,15 @@
+# gcloud --source context must not contain credentials or local artifacts.
+.gcloudignore
+.git/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.zip
+*.xlsx
+*.csv
+.env
+.env.*
+config.env
+tests/

@@ -10,6 +10,7 @@ COPY app ./app
 COPY ml ./ml
 COPY models ./models
 COPY web ./web
+RUN chmod -R a+rX /srv/app /srv/ml /srv/models /srv/web
 USER appuser
 EXPOSE 8080
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]

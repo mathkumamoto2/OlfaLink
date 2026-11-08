@@ -162,10 +162,134 @@ def select_ambient_30s(rows: list[dict]) -> tuple[list[dict], int]:
     last_30 = [r for r in rows if end_ms - 30_000 <= r["epoch_ms"] <= end_ms]
     # The previous 60 seconds are physically observed reference measurements.
     earlier = [r for r in rows if end_ms - 90_000 <= r["epoch_ms"] < end_ms - 30_000]
-    if len(earlier) < MIN_BASELINE_ROWS:
+    if len(earlier) < MIN_BASELINE_ROWS or earlier[-1]["epoch_ms"] - earlier[0]["epoch_ms"] < 58_000:
         raise ValueError("直近30秒より前の基準データが不足しています（約90秒の継続測定が必要）。")
     if not last_30 or last_30[-1]["epoch_ms"]-last_30[0]["epoch_ms"] < 28_000:
         raise ValueError("直近30秒間の測定値が不足しています。")
     phase_rows = ([dict(row, led="baseline") for row in earlier] +
                   [dict(row, led="exposure") for row in last_30])
     return select_30s(phase_rows)
+
+
+TEMPORAL_WINDOW_MS = 90_000
+TEMPORAL_SEGMENT_MS = 30_000
+MIN_TEMPORAL_ROWS = 4
+MIN_TEMPORAL_SPAN_MS = 20_000
+
+
+def time_split_metadata(rows: list[dict], end_ms: int) -> dict:
+    """Expose the deterministic time slots as *unverified* phase annotations.
+
+    These labels are input compatibility positions, not observed odor events.
+    """
+    start_ms = end_ms - TEMPORAL_WINDOW_MS
+    boundaries = (
+        ("baseline", start_ms, start_ms + TEMPORAL_SEGMENT_MS),
+        ("exposure", start_ms + TEMPORAL_SEGMENT_MS,
+         start_ms + 2 * TEMPORAL_SEGMENT_MS),
+        ("refresh", start_ms + 2 * TEMPORAL_SEGMENT_MS, end_ms),
+    )
+    windows = []
+    for index, (label, begin, finish) in enumerate(boundaries):
+        count = sum(begin <= int(row["epoch_ms"]) < finish or
+                    (index == 2 and int(row["epoch_ms"]) == finish) for row in rows)
+        windows.append({"label": label, "start_ms": begin,
+                        "end_ms": finish, "sample_count": count})
+    return {"method": "time_split_3x30s", "is_ground_truth": False,
+            "used_led_signal": False, "windows": windows}
+
+
+def select_time_split_90s(rows: list[dict]) -> tuple["np.ndarray", int]:
+    """Encode 90s of real observations as three *temporal* 30s segments.
+
+    Segment names are compatibility slots required by the existing v0.7
+    checkpoint; they are NOT measured baseline/exposure/refresh annotations.
+    No LED or odor label is read and no sensor signal is fabricated.
+
+    This enables inference, NOT valid identification without a controlled
+    acquisition protocol and new independent real-world validation.
+    """
+    import numpy as np
+    from ml.session_timeseries_v06 import (
+        CHANNELS, PHASE_BINS, _schema, _numeric, _median_bins,
+    )
+
+    if not rows:
+        raise ValueError("AWSから測定値が返っていません。")
+    ordered = sorted(rows, key=lambda row: int(row["epoch_ms"]))
+    end_ms = int(ordered[-1]["epoch_ms"])
+    start_ms = end_ms - TEMPORAL_WINDOW_MS
+    # Assign all samples to exactly one interval; the last endpoint is inclusive.
+    segments = (
+        [r for r in ordered if start_ms <= int(r["epoch_ms"]) < start_ms + 30_000],
+        [r for r in ordered if start_ms + 30_000 <= int(r["epoch_ms"]) < start_ms + 60_000],
+        [r for r in ordered if start_ms + 60_000 <= int(r["epoch_ms"]) <= end_ms],
+    )
+    names = ("第1区間", "第2区間", "第3区間")
+    for name, segment in zip(names, segments):
+        if len(segment) < MIN_TEMPORAL_ROWS:
+            raise ValueError(
+                f"{name}の測定値が不足しています（{len(segment)}件）。"
+                "約90秒の連続測定後に再度解析してください。"
+            )
+        stamps = [int(row["epoch_ms"]) for row in segment]
+        if stamps[-1] - stamps[0] < MIN_TEMPORAL_SPAN_MS:
+            raise ValueError(
+                f"{name}の測定時間が短すぎます。"
+                "約90秒の連続した測定が必要です。"
+            )
+        if any(b <= a for a, b in zip(stamps, stamps[1:])):
+            raise ValueError("測定時刻に重複があります。")
+
+    kind = _schema(ordered)
+    # Follow the exact channel ordering, units, relative normalization and
+    # phase-bin layout used in the v0.7 checkpoint.
+    encoded = []
+    for channel in CHANNELS:
+        phase_values = []
+        for name, segment in zip(names, segments):
+            v = np.asarray([_numeric(row, channel, kind) for row in segment], dtype=np.float64)
+            good = np.isfinite(v)
+            required = max(3, int(np.ceil(len(v) * 0.8)))
+            if int(good.sum()) < required:
+                raise ValueError(
+                    f"{name}の {channel} に有効な測定値が不足しています"
+                    f"（{int(good.sum())}/{len(v)}件）。AWS側のセンサー項目を確認してください。"
+                )
+            # Only fill isolated missing readings by interpolation between
+            # actually measured values. No all-missing channel is invented.
+            timestamps = np.asarray([int(r["epoch_ms"]) for r in segment], dtype=np.float64)
+            cleaned = np.interp(timestamps, timestamps[good], v[good])
+            phase_values.append(cleaned)
+
+        first = phase_values[0]
+        reference = float(np.median(first[-min(len(first), 60):]))
+        if channel not in ("bme_temp_c", "bme_rh_pct") and reference <= 1e-5:
+            if channel in ("tgs2602_adc", "tgs2603_adc") and reference == 0.0:
+                # Negative ADC codes were clamped to zero by AWS normalization.
+                # A relative change from a zero reference is undefined. Encode
+                # this unreliable ADC channel as an all-zero *normalized* trace
+                # instead of dividing by zero or inventing a positive baseline.
+                # The 7-channel model was not trained for a missing ADC channel;
+                # treat its final prediction as provisional, not validated.
+                transformed = [np.zeros_like(v) for v in phase_values]
+            else:
+                raise ValueError(f"{channel} の基準値が不正です。")
+        elif channel in ("bme_temp_c", "bme_rh_pct"):
+            transformed = [np.clip(v - reference, -50, 50) for v in phase_values]
+        else:
+            transformed = [np.clip((v - reference) / reference, -12, 12) for v in phase_values]
+        encoded.append(np.concatenate([
+            _median_bins(values, PHASE_BINS[phase])
+            for phase, values in zip(("baseline", "exposure", "refresh"), transformed)
+        ]))
+
+    readings = np.stack(encoded, axis=1).astype(np.float32)
+    masks = np.zeros((128, 3), dtype=np.float32)
+    masks[:24, 0] = 1.0
+    masks[24:88, 1] = 1.0
+    masks[88:, 2] = 1.0
+    trace = np.concatenate((readings, masks), axis=1)
+    if trace.shape != (128, 10) or not np.isfinite(trace).all():
+        raise ValueError("CNNの入力形式を生成できませんでした。")
+    return trace, end_ms

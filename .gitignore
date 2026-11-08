@@ -1,0 +1,44 @@
+# Private credentials and local runtime configuration (never commit)
+.env
+.env.*
+!.env.example
+config.env
+config.env.*
+*.pem
+*.key
+*credentials*.json
+*service-account*.json
+
+# Local Python/runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Private model adapters, downloaded base models and large artifacts
+llm-service/adapter/
+**/adapter_model.safetensors
+**/pytorch_model.bin
+**/model-*.safetensors
+**/checkpoint-*/
+*.gguf
+*.onnx
+*.zip
+*.tar.gz
+
+# Runtime and exports (synthetic CSV fixtures within tests/ are tracked)
+olfalink-webapp/data/
+*.xlsx
+*.parquet
+*.sqlite
+*.db
+logs/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+# Fine-tuned model weights and tokenizer assets stay out of the public GitHub repo.
+# Supply the adapter directly to Cloud Shell before building the private GPU service.
+adapter/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.*

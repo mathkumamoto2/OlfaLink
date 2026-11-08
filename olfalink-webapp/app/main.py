@@ -14,8 +14,9 @@ from app.services.inference import DisabledAnalysis
 from app.services.storage import DemoStore, FirestoreStore, ReadingStore
 from app.services.combined_dashboard import aws_dashboard, live_dashboard
 from app.services.live_stream import LiveBatch, LiveBuffer
-from app.services.on_demand_store import FirestoreOnDemandStore, LiveStore, MeasurementUnavailable
+from app.services.on_demand_store import FirestoreOnDemandStore, MemoryOnDemandStore, LiveStore, MeasurementUnavailable
 from app.services.on_demand_inference import infer_on_demand, previous_result
+from app.services.aws_live_data import AWSDataOnDemandStore
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
@@ -32,11 +33,17 @@ def create_app(configuration: Settings | None = None, store: ReadingStore | None
     config = configuration or settings()
     repo = store or (FirestoreStore(config.firestore_collection) if config.app_mode == "firestore" else DemoStore())
     analyzer = DisabledAnalysis()
-    app = FastAPI(title="OlfaLink API", version="1.1.0", docs_url="/api/docs", redoc_url=None)
+    app = FastAPI(title="OlfaLink API", version="1.9.2", docs_url="/api/docs", redoc_url=None)
     live_buffer = LiveBuffer()
     if config.app_mode == "on_demand":
-        # Production requires Firestore; no silent fallback to volatile memory.
+        # Legacy push-to-Firestore mode.
         live_store = live_store or FirestoreOnDemandStore()
+    elif config.app_mode == "aws_pull":
+        # No AWS Lambda bridge: fetch latest measurements only on POST.
+        # Presentation-safe startup: no mandatory Firestore initialization.
+        # Results stay in RAM and are lost when this Cloud Run instance stops.
+        live_store = live_store or AWSDataOnDemandStore(config.aws_read_key, MemoryOnDemandStore(), demo_fallback=config.demo_fallback_enabled,
+                                                       force_demo=config.force_demo_enabled)
 
     @app.middleware("http")
     async def security_headers(request, call_next):
@@ -55,7 +62,7 @@ def create_app(configuration: Settings | None = None, store: ReadingStore | None
 
     @app.get("/api/v1/healthz")
     def healthz():
-        return {"status":"ok","version":"1.1.0"}
+        return {"status":"ok","version":"1.9.2"}
 
     @app.get("/api/v1/integration/status")
     async def integration_status():
@@ -64,6 +71,15 @@ def create_app(configuration: Settings | None = None, store: ReadingStore | None
         This is intentionally a diagnostic of the upstream named-session archive,
         not a health or real-time sensor connection claim.
         """
+        if config.app_mode == "aws_pull":
+            return {"mode": "aws_pull", "aws_live_api_configured": bool(config.aws_read_key),
+                    "data_source": "AWS /data (button-triggered; no background requests)",
+                    "model_available": (ROOT / "models" / "odor_intensity_multitask_v0_7.pt").is_file(),
+                    "inference_mode": "button_only", "input_strategy": "time_split_3x30s", "llm_enabled": config.llm_enabled,
+                    "synthetic_demo_fallback": config.demo_fallback_enabled,
+                    "force_synthetic_demo": config.force_demo_enabled,
+                    "llm_demo_enabled": config.llm_demo_enabled and config.llm_enabled,
+                    "result_storage": "instance_memory_only"}
         if config.app_mode not in {"aws", "on_demand"}:
             return {"mode": config.app_mode, "aws_reachable": False,
                     "reason": "APP_MODE is not aws or on_demand"}
@@ -120,6 +136,11 @@ def create_app(configuration: Settings | None = None, store: ReadingStore | None
 
     @app.get("/api/v1/live/status")
     def live_status():
+        if config.app_mode == "aws_pull":
+            return {"live_feed_connected": None, "configured": bool(config.aws_read_key),
+                    "state_storage": "aws_data_pull_no_raw_storage", "window_seconds": 90,
+                    "inference_mode": "button_only",
+                    "message": "AWS /data is queried only when the analyze button is pressed."}
         if config.app_mode == "on_demand":
             state = live_store.status(config.live_device_id)
             ms = state["last_ms"]
@@ -138,13 +159,13 @@ def create_app(configuration: Settings | None = None, store: ReadingStore | None
 
     @app.get("/api/v1/readings", response_model=list[Reading])
     def readings(limit: int = Query(default=60, ge=1, le=240)):
-        if config.app_mode in {"aws", "on_demand"}:
+        if config.app_mode in {"aws", "on_demand", "aws_pull"}:
             return []  # Raw measurements and training data are not publicly exposed.
         return repo.recent(limit)
 
     @app.get("/api/v1/dashboard", response_model=Dashboard)
     async def dashboard():
-        if config.app_mode == "on_demand":
+        if config.app_mode in {"on_demand", "aws_pull"}:
             # This is a read-only cache access: no CNN, AWS, or LLM call.
             return await run_in_threadpool(previous_result, live_store, config.live_device_id)
         if config.app_mode == "aws":
@@ -172,18 +193,20 @@ def create_app(configuration: Settings | None = None, store: ReadingStore | None
 
     @app.post("/api/v1/inference/on-demand", response_model=Dashboard)
     async def inference_on_demand():
-        if config.app_mode != "on_demand":
+        if config.app_mode not in {"on_demand", "aws_pull"}:
             raise HTTPException(status_code=503, detail="on-demand inference is not enabled")
         # Only this explicitly invoked POST triggers CNN and optional LLM.
         try:
             return await run_in_threadpool(infer_on_demand, live_store,
-                                           config.live_device_id, config.llm_service_url)
+                                           config.live_device_id,
+                                           config.llm_service_url if config.llm_enabled else None,
+                                           llm_demo_enabled=config.llm_demo_enabled and config.llm_enabled)
         except MeasurementUnavailable as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/v1/readings", status_code=status.HTTP_201_CREATED, response_model=Reading)
     def ingest(reading: ReadingIn, x_device_key: str | None = Header(default=None)):
-        if config.app_mode in {"aws", "on_demand"} or not config.device_ingest_key:
+        if config.app_mode in {"aws", "on_demand", "aws_pull"} or not config.device_ingest_key:
             raise HTTPException(status_code=503, detail="device ingestion is disabled")
         if not x_device_key or not hmac.compare_digest(x_device_key, config.device_ingest_key):
             raise HTTPException(status_code=401, detail="invalid device credential")
