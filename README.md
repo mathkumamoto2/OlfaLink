@@ -1,71 +1,102 @@
-# OlfaLink — GitHub公開用ソース（v1.9.2）
+OlfaLink
+においを、データから人に伝わる情報へ。
 
-生活環境のにおいを扱う研究用プロトタイプ。**解析ボタンを押した時だけ**、AWS `/data` API（設定時）の時系列データを取得し、既存のCPU版1D-CNNでにおいの種類・強度（0–5）を推定します。Qwen3.5-2B + LoRAによる説明生成は**オプション**で、利用不可の場合は日本語の説明辞書にフォールバックします。解析中は「判定中です」を表示します。
+OlfaLinkは、複数のガスセンサーから得られる時系列データを解析し、生活環境のにおいの種類や強度を可視化することを目指す研究開発中のプロトタイプです。
 
-## ディレクトリ
+現在は、ESP32につながるセンサー群の測定値をWebアプリから取得し、1D-CNNでにおいの分類と強度推定を行います。推定結果は日本語の説明として表示でき、オプションでLLMを利用できます。
+Research prototype / 実験段階
+においの識別精度・未知環境への汎化性能は確立していません。現時点で、化学物質の同定、ガス濃度測定、健康・安全判断には利用できません。
 
-- `olfalink-webapp/` — FastAPI、UI、AWS JSON変換、CNNの推論と補正、合成デモ、ローカル起動、テスト。
-- `olfalink-webapp/models/odor_intensity_multitask_v0_7.pt` — 既存の実験用1D-CNNの重み（小型）。
-- `llm-service/` — 非公開Cloud Run GPUサービス用Qwen + LoRA推論コード。**LoRA重みは同梱していません**。
+目指していること
+人間には分かる「生ごみのようなにおい」「刺激的なにおい」といった感覚的な情報を、センサーが出力する数値から説明できるようにすることです。
 
-## 現在の処理
-
-1. Web画面で「においを解析する」をクリック。`POST /api/v1/inference/on-demand` を実行。
-2. AWSの実測データ（直近120秒の取得）を優先。取得できない、または入力条件を満たさない場合は、デモ設定が有効なら**明示した合成センサー時系列**に切り替える。
-3. 時刻による直近90秒の3分割（`baseline` / `exposure` / `refresh` 相当）を使用。**実際の曝露イベントを推定できたわけではない**。
-4. TGS2602・TGS2603のADCが負の場合、発表用の暫定措置としてCNN入力前に0へ補正。補正は画面とAPIに表示され、AWSの元データは変更しない。
-5. 1D-CNNで種類・強度を推定。LLMが許可・利用可能な場合にのみ説明生成を試行し、失敗時・不適切な入力時には辞書説明へ切り替える。
-
-### 研究上の注意
-
-- 1D-CNNの推定精度は**未検証**。学習時と現在の3区間入力は異なります。
-- 負ADCを0へ補正すると当該センサーの情報は失われ、精度はさらに低下し得ます。
-- `synthetic_demo` の結果は**実測ではありません**。ラベルや強度を現実のにおいの証拠として利用しないでください。
-- 濃度、人体への有害性、ガス漏れ等の安全判断には使えません。
-- 現行の公開Web推論APIにはユーザー認証・厳格なレート制限がありません。GPUを起動可能にする場合、第三者が課金対象の推論を呼び出すリスクがあります。
-
-## Windowsローカルで実行
-
-Python 3.11/3.12（64bit）のあるWindowsで `olfalink-webapp/Launch_Local.bat` を実行します。初回はPythonパッケージをインストールし、起動後 `http://127.0.0.1:8765` を開きます。
-
-- ローカルではCPU 1D-CNN＋説明辞書を使用。GPUなし。
-- AWS認証なしでも合成デモで動作（初回パッケージ導入時はネット接続が必要）。
-- AWSを使う場合は `config.env.example` を `config.env` に複製してキーを設定。`config.env` はGit管理対象外です。
-
-## Google Cloudへ再デプロイ（任意・課金に注意）
-
-**GitHubへのアップロードだけではデプロイされません。** また、停止・課金無効化済みのGoogle Cloudプロジェクトを勝手に再開しないでください。
-
-Google Cloud Shellでクローンした後、AWS読み取りキーがSecret Manager `olfalink-aws-read-key` に登録されている場合に限り、東京のWebアプリを次のようにデプロイできます。
-
-```bash
-cd ~/OlfaLink/olfalink-webapp
-bash deploy_aws_data_pull.sh
+現在の実装は、既知の7クラスの分類に限定した初期検証です。将来的にはセンサーの測定品質や選択性の改善、混合臭・未知臭への対応、知覚特徴に基づく表現を研究課題としています。これらは実装済み機能ではありません。
+システム構成
+```mermaid
+flowchart TD
+    A["センサーアレイ<br/>BME688 / SGP41 / TGS2602 / TGS2603"] --> B["ESP32・測定データ"]
+    B --> C["AWS /data API"]
+    C --> D["FastAPI / データ取得・検証"]
+    D --> E["時系列前処理<br/>90秒を30秒 × 3区間に分割"]
+    E --> F["1D-CNN<br/>におい7クラス・強度0〜5"]
+    F --> G["日本語の説明"]
+    H["説明辞書"] --> G
+    I["Qwen3.5-2B + LoRA<br/>オプション・重みは非公開"] -.-> G
+    G --> J["OlfaLink Web UI"]
+    K["合成データ（明示的なデモ用）"] -. "実測値が利用できない場合のみ" .-> D
 ```
+- オンデマンド解析：Web画面で解析ボタンを押したときにデータを取得し、推論を実行します。常時LLM推論はしません。
+- センサーデータ：BME688のガス抵抗・温湿度、SGP41のVOC/NOx指標、TGS2602/2603のADC値を使用します。
+- 種類・強度の推定：実験用1D-CNNが7つの既知クラスと0〜5の強度を出力します。
+- 日本語説明：既定は説明辞書。設定されたLLMサービスが利用できる場合は、分類結果をもとに説明を生成します。LLMが生のセンサー波形を理解する仕組みではありません。
+- データの出所を明示：実測値 device と合成デモ synthetic_demo を区別します。
+技術スタック
+レイヤー	主な技術
+センサー・組込み	ESP32、BME688、SGP41、TGS2602、TGS2603
+データ連携	AWS API Gatewayの読み取りAPI（/data）
+バックエンド	Python、FastAPI、Pydantic、httpx
+機械学習	PyTorch、1D-CNN、NumPy
+言語生成（任意）	Qwen3.5-2B、LoRA、Transformers、PEFT
+フロントエンド	HTML、CSS、JavaScript
+デプロイ先（任意）	Google Cloud Run
 
-これは**Web+CPU CNN**の更新です。LLM GPUサービスの再構築には `llm-service/adapter/` に別途LoRA重みが必要です。公開GitHubにはその重みを置かないでください。GPUの起動やCloud Runビルドには費用が発生する可能性があります。**`olfalink-webapp/start_server_with_gpu.sh` はGPUを1台に固定する発表用スクリプトなので、費用を発生させたくない場合は実行しないでください。**
 
-> 既存の公開Webアプリがオフラインでも、GitHubへのプッシュによって自動的にクラウドが起動することは通常ありません。ただし、Cloud Build/GitHub Actions等の自動デプロイ設定がある場合は別です。
-
-## テスト
-
-```bash
+ローカルで試す
+Google CloudやGPUの契約は不要です。 AWSの読み取りキーがなくても、合成データを用いた画面・推論の動作確認ができます。合成データの結果にはその旨が表示されます。
+Windows（推奨の起動方法）
+1. 64bit版の Python 3.11 または 3.12 を用意します。
+2. このリポジトリをクローン、またはZIPで取得します。
+3. olfalink-webapp/Launch_Local.bat を実行します。初回のみ依存ライブラリのインストールにネット接続が必要です。
+4. http://127.0.0.1:8765 を開き、「においを解析する」を選びます。
+git clone https://github.com/mathkumamoto2/OlfaLink.git
+cd OlfaLink\olfalink-webapp
+.\Launch_Local.bat
+実行中はターミナルを閉じず、終了時は Ctrl+C を使用してください。
+コマンドラインで起動する場合
 cd olfalink-webapp
-python -m pip install -r requirements-dev.txt
-python -m pip install --index-url https://download.pytorch.org/whl/cpu 'torch>=2.4,<3'
-python -m pytest -q
-```
+python -m venv .venv
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# macOS/Linux: source .venv/bin/activate
+python -m pip install -r requirements-local.txt
+python -m pip install 'torch>=2.4,<3'
+python run_local.py
+PyTorchのCPU版を使用したい場合は、環境に合うインストール方法をPyTorch公式サイトで確認してください。Windows用起動スクリプトはCPU版PyTorchを導入します。
+実測データを接続する場合
+olfalink-webapp/config.env.example を config.env にコピーし、利用者自身が管理するAWS読み取りキーを設定します。`config.env` はGitの除外対象です。認証情報はコード、Issue、ログに記載しないでください。
+OLFALINK_READ_KEY=your-read-only-key
+OLFALINK_FORCE_DEMO=false
+利用には対象のAWS API・センサーデータへのアクセス権限が必要です。無効なデータや必要なセンサー値の欠損時には、ローカル版は合成デモに切り替わるため、推論結果が実測値に基づくかを必ず確認してください。
+API（主なエンドポイント）
+WebアプリのAPI仕様は起動後、`http://127.0.0.1:8765/api/docs` から確認できます。
+メソッド・パス	用途
+POST /api/v1/inference/on-demand	ボタン操作によるデータ取得・CNN推論・説明生成
+GET /api/v1/dashboard	保存された直近の推論結果を取得（再推論しない）
+GET /api/v1/healthz	アプリケーションの起動確認
+GET /api/v1/integration/status	連携設定・動作モードの確認
 
-LLMのAPI契約テスト（実際のGPU推論ではありません。非公開LoRA重みの検査1件は公開ソースではスキップ）:
 
-```bash
-cd llm-service
-python -m pytest -q
-```
-
-## 公開前のチェック
-
-- `.env`、`config.env`、AWSキー、個人の認証情報はコミットしない。
-- `llm-service/adapter/`、HFからダウンロードした巨大なベースモデル、測定した実機の生データはコミットしない。
-- `git diff --cached --check` と `git diff --cached --name-only` で公開対象を確認する。
-- この配布物はv1.9.2のWebコード＋v1.9系LLMサービスソースを組み合わせたもので、**ユーザーのCloud Run本番環境への反映は行っていません**。
+リポジトリ構成
+OlfaLink/
+├── README.md
+├── olfalink-webapp/
+│   ├── app/              # FastAPI・AWSデータ取得・推論処理
+│   ├── ml/               # CNNモデル定義・時系列前処理
+│   ├── models/           # 実験用CNNチェックポイント
+│   ├── web/              # ユーザーインターフェース
+│   ├── tests/            # 自動テスト
+│   ├── MODEL_CARD_MULTITASK.md
+│   └── Launch_Local.bat
+└── llm-service/          # 任意のLLM推論サービス（LoRA重みは非同梱）
+技術的な詳細は[WebアプリのREADME](olfalink-webapp/README.md)、[CNNモデルカード](olfalink-webapp/MODEL_CARD_MULTITASK.md)、[LLMサービスのREADME](llm-service/README.md)を参照してください。
+現時点の制約・検証状況
+- 分類器の性能は研究段階：学習データの独立した元測定が少なく、合成拡張への依存が大きい状態です。モデルカードに記録した出所グループ別ホールドアウト（元測定2件に由来する合成データ200件）では、におい分類正解率が**0%**でした。実環境に一般化する精度の根拠はありません。
+- 区間分割は暫定的：直近90秒を時間で3分割し、旧モデル用の baseline / exposure / refresh 入力に対応させています。実際の曝露・回復タイミングを測定したわけではありません。
+- ADCの負値補正は暫定措置：AWSで受信したTGS2602/2603の負のADC値をCNN入力前に0へ丸めます。補正後の当該信号情報は失われ得るため、正確性は保証できません。AWSに保存された原データは変更しません。
+- 未知のにおいは判定不可：現在のCNNに未知クラス検出・化学物質同定機能はありません。分類スコアも確率として校正していません。
+- 用途制限：ガス漏れ警報、空気の安全判定、医療・健康上の判断には使用しないでください。
+セキュリティ・運用について
+- このリポジトリにはAWS APIキー、サービスアカウント鍵、非公開LoRAアダプター、実測の生データは含めていません。
+- APIは一般公開向けの認証・厳格なレート制限を備えていません。インターネットに公開する場合は認証、アクセス制御、課金上限などを別途設計してください。
+- Cloud Runへのデプロイは任意です。デプロイスクリプトは環境依存の設定を含むため、実行前に内容を確認してください。Cloud BuildやGPUには料金が発生する場合があります。
+ライセンス
+現時点ではリポジトリに LICENSE ファイルを設定していません。GitHub上でソースコードを閲覧できることは、第三者による自由な再利用・再配布の許諾を意味しません。
